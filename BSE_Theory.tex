@@ -1,0 +1,93 @@
+\documentclass[12pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath, amssymb, physics}
+\usepackage{geometry}
+\geometry{margin=1in}
+\usepackage{cite}
+\usepackage{hyperref}
+
+\title{Tight-Binding Bethe-Salpeter Equation (TB-BSE):\\ Theory and Implementation}
+\author{Theoretical Physics Notes}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\section{Introduction}
+To accurately describe excitonic optical transitions in complex 2D/3D van der Waals heterostructures, a rigorous approach bridging ab-initio density functional theory (DFT) and many-body perturbation theory is required. The Tight-Binding Bethe-Salpeter Equation (TB-BSE) offers a highly computationally efficient alternative to full plane-wave $GW$-BSE by projecting the continuum Bloch states onto a basis of Maximally Localized Wannier Functions (MLWFs) \cite{Marzari1997, Mostofi2008}.
+
+\section{Single-Particle Tight-Binding Hamiltonian}
+The output of a VASP+Wannier90 calculation yields real-space hopping matrix elements $\matrixel{\vb{0}, m}{H}{\vb{R}, n}$. The momentum-space single-particle Hamiltonian is constructed via Fourier transform:
+\begin{equation}
+    H_{mn}(\vb{k}) = \sum_{\vb{R}} e^{i \vb{k} \cdot \vb{R}} \matrixel{\vb{0}, m}{H}{\vb{R}, n}
+\end{equation}
+Diagonalizing $H(\vb{k})$ yields the quasiparticle band energies $E_{n\vb{k}}$ and eigenvectors $C_{m\alpha}(\vb{k})$, where $\alpha = \{v, c\}$ denote valence and conduction bands. 
+
+\section{The Two-Particle BSE Hamiltonian}
+Optical excitations are governed by the two-particle electron-hole correlation. In the Tamm-Dancoff Approximation (TDA) for direct excitons (total momentum $\vb{Q} = 0$), the exciton wavefunction is expanded as a linear combination of vertical electron-hole pair states:
+\begin{equation}
+    \ket{\Psi_{exc}} = \sum_{c, v, \vb{k}} A_{cv\vb{k}} \ket{c, v, \vb{k}}
+\end{equation}
+The expansion coefficients $A_{cv\vb{k}}$ and the exciton energies $\Omega$ are found by solving the generalized eigenvalue problem:
+\begin{equation}
+    \sum_{c', v', \vb{k}'} H^{BSE}_{cv\vb{k}, c'v'\vb{k}'} A_{c'v'\vb{k}'} = \Omega A_{cv\vb{k}}
+\end{equation}
+The BSE Hamiltonian matrix elements take the form \cite{Strinati1988, Rohlfing1998, Wu2015}:
+\begin{equation}
+    H^{BSE}_{cv\vb{k}, c'v'\vb{k}'} = (E_{c\vb{k}} - E_{v\vb{k}})\delta_{cc'}\delta_{vv'}\delta_{\vb{k}\vb{k}'} + 2V^x_{cv\vb{k}, c'v'\vb{k}'} - W^d_{cv\vb{k}, c'v'\vb{k}'}
+\end{equation}
+where $V^x$ is the bare electron-hole exchange interaction (driving the singlet-triplet splitting) and $W^d$ is the screened direct Coulomb interaction.
+
+\section{Momentum-Space Rytova-Keldysh Screening}
+Evaluating exact Coulomb integrals between extended Wannier functions is complex. Under the \textit{monopole approximation}, the direct term is dominated by the macroscopic screened interaction modulated by the overlap of the Bloch periodic parts:
+\begin{equation}
+    W^d_{cv\vb{k}, c'v'\vb{k}'} \approx W(\vb{q}) M_{cv, c'v'}(\vb{k}, \vb{k}')
+\end{equation}
+where $\vb{q} = \vb{k} - \vb{k}'$ is the momentum transfer, and the overlap is $M_{cv, c'v'} = \braket{v\vb{k}}{v'\vb{k}'} \braket{c'\vb{k}'}{c\vb{k}}$.
+
+For a 2D TMD on a 3D substrate (like GaAs), the Fourier transform of the Rytova-Keldysh potential provides the screened Coulomb interaction $W(\vb{q})$ \cite{Rytova1967, Keldysh1979, Cudazzo2011}:
+\begin{equation}
+    W(q) = \frac{2\pi e^2}{\varepsilon_0 q (\kappa + r_0 q)}
+\end{equation}
+where $\kappa = (\varepsilon_{sub} + \varepsilon_{vac})/2$ is the macroscopic environmental screening parameter, and $r_0$ is the intrinsic 2D polarizability of the monolayer.
+
+\section{Optical Absorption}
+Once the BSE matrix is diagonalized, the macroscopic dielectric function (proportional to optical absorption $\alpha(\omega)$) is determined by the transition dipole moments \cite{HaugKoch2009}:
+\begin{equation}
+    \alpha(\omega) \propto \sum_S \abs{\sum_{c,v,\vb{k}} A_{cv\vb{k}}^S \, \vb{d}_{cv\vb{k}}}^2 \delta(\hbar\omega - \Omega_S)
+\end{equation}
+where $\vb{d}_{cv\vb{k}}$ is the dipole matrix element between the valence and conduction bands. The constructive interference of the coefficients $A_{cv\vb{k}}$ gives rise to the massive oscillator strengths characteristic of 2D excitons.
+
+\begin{thebibliography}{99}
+
+\bibitem{Marzari1997}
+N. Marzari and D. Vanderbilt, \textit{Maximally localized generalized Wannier functions for composite energy bands}, Physical Review B \textbf{56}, 12847 (1997).
+
+\bibitem{Mostofi2008}
+A. A. Mostofi, J. R. Yates, Y.-S. Lee, I. Souza, D. Vanderbilt, and N. Marzari, \textit{wannier90: A tool for obtaining maximally-localised Wannier functions}, Computer Physics Communications \textbf{178}, 685 (2008).
+
+\bibitem{Strinati1988}
+G. Strinati, \textit{Application of the Green’s functions method to the study of the optical properties of semiconductors}, La Rivista del Nuovo Cimento \textbf{11}, 1 (1988).
+
+\bibitem{Rohlfing1998}
+M. Rohlfing and S. G. Louie, \textit{Electron-hole excitations in semiconductors and insulators}, Physical Review Letters \textbf{81}, 2312 (1998).
+
+\bibitem{Wu2015}
+F. Wu, F. Qu, and A. H. MacDonald, \textit{Exciton band structure of monolayer MoS2}, Physical Review B \textbf{91}, 075310 (2015).
+
+\bibitem{Rytova1967}
+N. S. Rytova, \textit{Screened potential of a point charge in a thin film}, Moscow University Physics Bulletin \textbf{3}, 18 (1967).
+
+\bibitem{Keldysh1979}
+L. V. Keldysh, \textit{Coulomb interaction in thin semiconductor and semimetal films}, JETP Letters \textbf{29}, 658 (1979).
+
+\bibitem{Cudazzo2011}
+P. Cudazzo, I. V. Tokatly, and A. Rubio, \textit{Dielectric screening in two-dimensional insulators: Implications for excitonic and impurity states in graphane}, Physical Review B \textbf{84}, 085406 (2011).
+
+\bibitem{HaugKoch2009}
+H. Haug and S. W. Koch, \textit{Quantum Theory of the Optical and Electronic Properties of Semiconductors}, 5th ed. (World Scientific, 2009).
+
+\end{thebibliography}
+
+\end{document}

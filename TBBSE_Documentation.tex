@@ -1,0 +1,173 @@
+\documentclass[11pt, a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath, amssymb, physics}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{geometry}
+\usepackage{cite}
+\usepackage{xcolor}
+\geometry{a4paper, margin=1in}
+
+\title{\textbf{Tight-Binding Bethe-Salpeter Equation (TB-BSE) Solver: Comprehensive Theory and Usage Guide}}
+\author{Antigravity Agent}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+This document serves as a comprehensive theoretical guide and user manual for the Tight-Binding Bethe-Salpeter Equation (TB-BSE) solver. It outlines the foundational physics of constructing maximally localized Wannier functions, formulating the excitonic Hamiltonian, and computing optical absorption spectra. Furthermore, it provides detailed instructions on running prerequisite ab-initio calculations (DFT and Wannier90) and a complete reference for the \texttt{tbbse.inp} input configuration.
+\end{abstract}
+
+\tableofcontents
+\newpage
+
+\section{Detailed Theoretical Background}
+
+\subsection{The Tight-Binding Hamiltonian and Wannier Functions}
+Density Functional Theory (DFT) provides the independent-particle Bloch wavefunctions $\psi_{n\mathbf{k}}(\mathbf{r})$ and band energies $E_{n\mathbf{k}}$. To construct a computationally efficient model for many-body physics, we transform the delocalized Bloch states into a basis of Maximally Localized Wannier Functions (MLWFs) \cite{marzari1997, marzari2012}. 
+
+A Wannier function localized at the home unit cell $\mathbf{R}$ for band $n$ is defined by a unitary transformation of the Bloch states across the Brillouin Zone (BZ):
+\begin{equation}
+    |n \mathbf{R} \rangle = \frac{V}{(2\pi)^3} \int_{\text{BZ}} d\mathbf{k} \, e^{-i \mathbf{k} \cdot \mathbf{R}} \sum_{m} U_{mn}^{(\mathbf{k})} |\psi_{m\mathbf{k}}\rangle
+\end{equation}
+Wannier90 computes the gauge matrices $U_{mn}^{(\mathbf{k})}$ by minimizing the total spatial spread $\Omega = \sum_n (\langle r^2 \rangle_n - \langle \mathbf{r} \rangle_n^2)$ of the resulting localized orbitals.
+
+Once the MLWFs are obtained, the Hamiltonian in this real-space tight-binding basis is strictly described by the hopping matrix elements $H_{mn}(\mathbf{R})$:
+\begin{equation}
+    H_{mn}(\mathbf{R}) = \langle m \mathbf{0} | \hat{H} | n \mathbf{R} \rangle
+\end{equation}
+These hopping elements decay exponentially with distance, allowing us to truncate the sum over $\mathbf{R}$. To map this back to reciprocal space and solve for the single-particle energies at any arbitrary $\mathbf{k}$-point, we perform a discrete Fourier transform:
+\begin{equation}
+    H_{mn}(\mathbf{k}) = \sum_{\mathbf{R}} \frac{1}{N_{\text{deg}}(\mathbf{R})} \sum_{\mathbf{r}_{\text{ws}}} e^{i \mathbf{k} \cdot \mathbf{r}_{\text{ws}}} H_{mn}(\mathbf{R})
+\end{equation}
+where the inner sum runs over the set of degenerate Wigner-Seitz vectors $\mathbf{r}_{\text{ws}}$ that connect the home cell to the equivalent periodic images. Using the exact Wigner-Seitz vectors ensures that the crystalline point-group symmetries are rigorously preserved in the Fourier interpolation. Diagonalization of $H(\mathbf{k})$ yields the single-particle energies $E_{n\mathbf{k}}$ and the tight-binding eigenvectors $c_{n\mathbf{k}}$.
+
+\subsection{The Bethe-Salpeter Equation (BSE) for Excitons}
+The optical properties of semiconductors and 2D heterostructures are dominated by the formation of excitons—bound electron-hole pairs created by the absorption of a photon. The independent particle approximation (IPA) fails to describe these phenomena because it neglects the strong Coulomb attraction between the excited electron and the remaining hole. The Bethe-Salpeter equation (BSE) provides a rigorous framework for treating these two-particle excitations \cite{rohlfing2000, haug_koch_2009}.
+
+We solve the BSE within the Tamm-Dancoff Approximation (TDA), which neglects the anti-resonant coupling between positive and negative frequency excitations. This is highly accurate for standard semiconductors where the exciton binding energy is much smaller than the bandgap. The effective excitonic Hamiltonian in the transition space (valence bands $v$, conduction bands $c$) is:
+\begin{equation}
+    H^{\text{BSE}}_{vc\mathbf{k}, v'c'\mathbf{k}'} = \left( E_{c\mathbf{k}} - E_{v\mathbf{k}} \right) \delta_{vv'}\delta_{cc'}\delta_{\mathbf{k}\mathbf{k}'} - W_{vv'cc'}(\mathbf{k}, \mathbf{k}') + 2 V_{vv'cc'}(\mathbf{k}, \mathbf{k}')
+\end{equation}
+Here:
+\begin{itemize}
+    \item The \textbf{diagonal term} represents the kinetic energy and the single-particle bandgap.
+    \item $W$ is the \textbf{screened direct Coulomb interaction}. It is attractive (negative sign) and is responsible for binding the electron and hole together.
+    \item $V$ is the \textbf{repulsive exchange interaction}. For spin-singlet excitons (which are optically active), this term splits the singlet and triplet states and contributes to the fine structure, though it is often omitted in minimal models focusing purely on binding.
+\end{itemize}
+
+\subsubsection{Screening in 2D: The Rytova-Keldysh Potential}
+In ultra-thin 2D systems, such as transition metal dichalcogenide (TMD) monolayers or GaAs-MX$_2$ heterojunctions, the dielectric screening is highly non-local. The electric field lines between an electron and hole propagate largely outside the material (into the vacuum or the surrounding substrate). The standard bulk Coulomb potential $1/(\epsilon r)$ is therefore invalid.
+
+We employ the macroscopic Rytova-Keldysh potential \cite{rytova1967, keldysh1979}, which in momentum space ($\mathbf{q} = \mathbf{k} - \mathbf{k}'$) takes the form:
+\begin{equation}
+    W_{\text{macro}}(\mathbf{q}) = \frac{2\pi e^2}{\epsilon_0 q (\kappa + r_0 q)}
+\end{equation}
+where $\kappa = (\epsilon_{\text{top}} + \epsilon_{\text{bottom}})/2$ is the average macroscopic dielectric constant of the environment, and $r_0$ is the 2D polarizability (screening length) intrinsic to the heterostructure. This form accurately reproduces the logarithmic behavior at short distances and the $1/r$ behavior at large distances.
+
+\subsubsection{Sub-Cell Gauge Correction}
+While $W_{\text{macro}}(\mathbf{q})$ captures the long-range macroscopic screening, the tight-binding orbitals exist at specific locations within the unit cell (the Wannier centres, $\boldsymbol{\tau}_m$). To incorporate the correct intra-cell phase relationship, the full interaction matrix element includes a gauge-correction factor:
+\begin{equation}
+    W_{vv'cc'}(\mathbf{q}) = \frac{W_{\text{macro}}(\mathbf{q})}{A_{\text{cell}}} \langle v\mathbf{k} | v'\mathbf{k}' \rangle \langle c'\mathbf{k}' | c\mathbf{k} \rangle e^{i \mathbf{q} \cdot (\boldsymbol{\tau}_c - \boldsymbol{\tau}_v)}
+\end{equation}
+where the overlaps $\langle n\mathbf{k} | n'\mathbf{k}' \rangle$ are computed using the tight-binding eigenvectors, properly mapping the orbital characters of the interacting bands.
+
+Diagonalizing $H^{\text{BSE}}$ yields the exciton eigenvalues $E_S$ (the energy of the bound state) and the excitonic envelope functions $A_{\mathbf{k}}^S$, which describe the probability amplitude of finding the electron-hole pair at relative momentum $\mathbf{k}$.
+
+\subsection{Optical Transition Probabilities and Peierls Substitution}
+To compute the optical absorption spectrum, we need the transition oscillator strengths. Following Elliott's formula \cite{haug_koch_2009}, the macroscopic absorption $\alpha(\omega)$ is a sum over all excitonic states $S$:
+\begin{equation}
+    \alpha(\omega) \propto \sum_S f_S \, \frac{\gamma / 2}{(\hbar\omega - E_S)^2 + (\gamma/2)^2}
+\end{equation}
+where $\gamma$ is a phenomenological line-broadening parameter (accounting for electron-phonon scattering and finite lifetime), and $f_S$ is the oscillator strength. 
+
+The oscillator strength depends on the velocity matrix elements between the valence and conduction bands. In a continuous Hilbert space, this is $\langle c | \mathbf{p} | v \rangle / m_0$. However, in a discretized tight-binding lattice, the momentum operator is ill-defined. We circumvent this using the \textbf{Peierls substitution}, which relates the velocity operator to the $\mathbf{k}$-gradient of the Hamiltonian \cite{boykin2010}:
+\begin{equation}
+    \mathbf{v}(\mathbf{k}) = \frac{1}{\hbar} \nabla_{\mathbf{k}} H(\mathbf{k}) = \frac{1}{\hbar} \sum_{\mathbf{R}} i\mathbf{R} \, e^{i \mathbf{k} \cdot \mathbf{R}} H(\mathbf{R})
+\end{equation}
+The optical transition matrix element for a specific polarization direction $\eta \in \{x,y,z\}$ is:
+\begin{equation}
+    M_{cv}^{\eta}(\mathbf{k}) = \langle c\mathbf{k} | \mathbf{v}_{\eta}(\mathbf{k}) | v\mathbf{k} \rangle = \sum_{n,m} (c_{c\mathbf{k},n})^* \, v_{\eta, nm}(\mathbf{k}) \, c_{v\mathbf{k},m}
+\end{equation}
+Finally, the oscillator strength $f_S$ of the exciton state $S$ is given by the coherent sum of these transitions over the Brillouin Zone, weighted by the exciton envelope function:
+\begin{equation}
+    f_S = \left| \sum_{\mathbf{k}} A_{\mathbf{k}}^S M_{cv}^{\eta}(\mathbf{k}) \right|^2
+\end{equation}
+This coherent sum naturally encapsulates optical selection rules: if the envelope function $A_{\mathbf{k}}^S$ has odd parity (e.g., $p$-states), it destructively interferes with the even-parity optical matrix elements, rendering the state ``dark''. Even parity $s$-states constructively interfere, rendering them ``bright''.
+
+\newpage
+\section{Usage Guide and Instructions}
+
+\subsection{Step 1: DFT and Wannier90 Preparation}
+Before running the TB-BSE solver, you must extract the ab-initio Hamiltonian using a DFT code (e.g., VASP, Quantum ESPRESSO) coupled with Wannier90.
+
+1. \textbf{Run an SCF Calculation}: Obtain the converged ground-state charge density for your heterostructure.
+2. \textbf{Run an NSCF Calculation}: Calculate the wavefunctions on a dense, uniform $\mathbf{k}$-grid. For orthorhombic vertical heterojunctions, use a 2D grid like $15 \times 15 \times 1$. 
+3. \textbf{Wannier90 Configuration}: Your \texttt{wannier90.win} file \textit{must} include the following flags:
+\begin{verbatim}
+write_hr = true
+write_wsvec = true
+position_matrices = true
+\end{verbatim}
+\begin{itemize}
+    \item \texttt{write\_hr}: Outputs \texttt{prefix\_hr.dat} (the real-space Hamiltonian $H_{mn}(\mathbf{R})$).
+    \item \texttt{write\_wsvec}: Outputs \texttt{prefix\_wsvec.dat}, required for the exact Wigner-Seitz spatial symmetry preservation.
+    \item \texttt{wannier90.wout}: The main output file will contain the coordinates of the Wannier centres (under the \texttt{Final State: WF centre and spread} block). The TB-BSE script automatically parses this to calculate the intra-cell Coulomb gauge correction.
+\end{itemize}
+Ensure the Wannierization converges successfully (the spread $\Omega$ reaches a steady minimum).
+
+\subsection{Step 2: Configuration via \texttt{tbbse.inp}}
+The TB-BSE solver is controlled via an input script named \texttt{tbbse.inp}. This file must be located in the same directory as the solver script and the Wannier90 output files. Below is a detailed breakdown of every configuration flag.
+
+\begin{itemize}
+    \item \textbf{[System]}
+    \begin{itemize}
+        \item \texttt{wannier\_prefix}: The prefix of your Wannier90 files (e.g., if you have \texttt{GaAs\_hr.dat}, set this to \texttt{GaAs}). Default is \texttt{wannier90}.
+        \item \texttt{a\_x}, \texttt{a\_y}: The 2D lattice constants of your orthorhombic supercell, in Angstroms. Required for generating the proper reciprocal lattice vectors $\mathbf{b}_1, \mathbf{b}_2$ and converting reciprocal coordinates to physical distances.
+        \item \texttt{c\_z}: The vertical size of the supercell (in Angstroms). Even for a 2D system, the DFT cell has a vacuum gap. This parameter is used strictly to define the physical volume/area of the computational cell.
+    \end{itemize}
+    
+    \item \textbf{[BSE\_Parameters]}
+    \begin{itemize}
+        \item \texttt{nk\_x}, \texttt{nk\_y}: The dimensions of the $\mathbf{k}$-point mesh used to solve the BSE. A denser mesh yields more continuous spectra and accurate binding energies, but the memory and time scale as $\mathcal{O}((N_{kx}N_{ky})^3)$. Start with $15 \times 15$ for testing.
+        \item \texttt{kappa}: The average dielectric constant of the surrounding medium. If your 2D layer is suspended in a vacuum, $\kappa = 1$. If it sits on a bulk GaAs substrate ($\epsilon \approx 12.9$), $\kappa = (12.9 + 1.0)/2 = 6.95$.
+        \item \texttt{r0\_ang}: The intrinsic 2D screening length of the heterostructure in Angstroms. This can be derived from ab-initio dielectric tensor calculations (e.g., taking the macroscopic dielectric profile integrated over the slab thickness). Typical values range from 30 \AA\ to 60 \AA\ for TMDs.
+    \end{itemize}
+
+    \item \textbf{[Bands]}
+    \begin{itemize}
+        \item \texttt{valence\_bands}, \texttt{conduction\_bands}: The zero-indexed indices of the Wannier bands you wish to include in the transition space. For a minimal two-band model (one hole, one electron), set these to the respective VBM and CBM band indices.
+    \end{itemize}
+
+    \item \textbf{[Optics]}
+    \begin{itemize}
+        \item \texttt{polarization}: The direction of the incoming electric field. Options are \texttt{x}, \texttt{y}, or \texttt{in-plane} (which averages the x and y oscillator strengths).
+        \item \texttt{broadening}: The phenomenological Lorentzian linewidth $\gamma$ applied to each discrete exciton state, in eV. Typical experimental values range from $0.01$ to $0.05$ eV.
+        \item \texttt{energy\_range}: Defined as \texttt{E\_min, E\_max, N\_points}. This determines the plotting window relative to the Quasiparticle (TB) bandgap. For example, \texttt{-0.5, 0.2, 500} plots from 0.5 eV below the bandgap to 0.2 eV above it, using 500 resolution points.
+    \end{itemize}
+\end{itemize}
+
+\subsection{Step 3: Execution}
+Run the solver using Python (requires \texttt{numpy}, \texttt{scipy}, and \texttt{matplotlib}):
+\begin{verbatim}
+python tb_bse_solver.py
+\end{verbatim}
+The script performs the following actions:
+1. **Pre-flight Check**: Calculates the rank of the dense complex BSE Hamiltonian matrix and estimates the required peak RAM (in GB) and expected diagonalization time. If the RAM exceeds typical workstation bounds ($>16$ GB), a warning is issued.
+2. **Diagonalization**: The script solves the BSE to find the exciton states. It outputs the lowest bound states and their respective binding energies ($E_b = E_{gap} - E_S$).
+3. **Plotting**: Generates and saves the absorption spectrum plot as \texttt{tbbse\_absorption.png}.
+
+\section{References}
+\begin{thebibliography}{9}
+\bibitem{rohlfing2000} Rohlfing, M., \& Louie, S. G. (2000). Electron-hole excitations and optical spectra from first principles. \textit{Physical Review B}, 62(8), 4927.
+\bibitem{haug_koch_2009} Haug, H., \& Koch, S. W. (2009). \textit{Quantum Theory of the Optical and Electronic Properties of Semiconductors} (5th ed.). World Scientific.
+\bibitem{marzari1997} Marzari, N., \& Vanderbilt, D. (1997). Maximally localized generalized Wannier functions for composite energy bands. \textit{Physical Review B}, 56(20), 12847.
+\bibitem{marzari2012} Marzari, N., Mostofi, A. A., Yates, J. R., Souza, I., \& Vanderbilt, D. (2012). Maximally localized Wannier functions: Theory and applications. \textit{Reviews of Modern Physics}, 84(4), 1419.
+\bibitem{rytova1967} Rytova, N. S. (1967). Screened potential of a point charge in a thin film. \textit{Moscow University Physics Bulletin}, 3(3), 30.
+\bibitem{keldysh1979} Keldysh, L. V. (1979). Coulomb interaction in thin semiconductor and semimetal films. \textit{Journal of Experimental and Theoretical Physics Letters}, 29, 658.
+\bibitem{boykin2010} Boykin, T. B., Luisier, M., \& Klimeck, G. (2010). Current density and continuity in discretized models. \textit{European Journal of Physics}, 31(5), 1077.
+\end{thebibliography}
+
+\end{document}

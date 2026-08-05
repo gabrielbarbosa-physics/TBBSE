@@ -1,0 +1,54 @@
+# ==============================================================================
+# Tight-Binding Bethe-Salpeter Equation (TB-BSE) Solver Input Script
+# ==============================================================================
+# This script configures the TB-BSE calculation using Wannier90 output files.
+# It is designed for 2D and pseudo-2D systems (e.g., vertical heterojunctions 
+# like GaAs-MX2) with orthorhombic supercells, where the 2D plane is 
+# perpendicular to the c-vector (z-axis).
+# ==============================================================================
+
+[System]
+# Prefix of the Wannier90 output files (e.g., if files are wannier90_hr.dat, prefix is 'wannier90')
+wannier_prefix = wannier90
+
+# Lattice constant in the 2D plane (Angstroms)
+# Note: For orthorhombic cells, specify a_x and a_y. If a_y is not specified, it defaults to a_x.
+a_x = 3.18
+a_y = 3.18
+
+# Height of the supercell along the c-vector (Angstroms). Used for volume/area normalizations.
+c_z = 20.0
+
+[BSE_Parameters]
+# k-point mesh dimensions (nk_x, nk_y) for solving the BSE.
+# A denser mesh (e.g., 30 30 or 60 60) is required for converged optical spectra, 
+# but will increase memory and computation time significantly. O(N_k^6) scaling.
+nk_x = 15
+nk_y = 15
+
+# Dielectric screening parameters for the Rytova-Keldysh potential
+# kappa: Average macroscopic dielectric constant of the surrounding media 
+#        (e.g., (epsilon_substrate + epsilon_vacuum) / 2)
+kappa = 6.95
+
+# r0: Intrinsic 2D polarizability / screening length of the heterostructure (Angstroms)
+r0_ang = 45.0
+
+[Bands]
+# Indices of the Wannier bands to include in the BSE (0-indexed).
+# For a minimal exciton model in a semiconductor, select the highest valence band 
+# and the lowest conduction band.
+valence_bands = 0
+conduction_bands = 1
+
+[Optics]
+# Polarization direction for the optical absorption spectrum.
+# Options: 'x', 'y', 'in-plane' (average of x and y), or 'z'.
+polarization = in-plane
+
+# Artificial linewidth broadening (gamma) in eV for the Lorentzian peaks in the absorption spectrum.
+broadening = 0.02
+
+# Energy range for the absorption plot (relative to the quasiparticle bandgap, in eV)
+# E_min, E_max, number_of_points
+energy_range = -0.5, 0.2, 500
