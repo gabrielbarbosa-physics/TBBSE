@@ -111,46 +111,89 @@ write_hr = true
 write_wsvec = true
 position_matrices = true
 \end{verbatim}
-\begin{itemize}
-    \item \texttt{write\_hr}: Outputs \texttt{prefix\_hr.dat} (the real-space Hamiltonian $H_{mn}(\mathbf{R})$).
-    \item \texttt{write\_wsvec}: Outputs \texttt{prefix\_wsvec.dat}, required for the exact Wigner-Seitz spatial symmetry preservation.
-    \item \texttt{wannier90.wout}: The main output file will contain the coordinates of the Wannier centres (under the \texttt{Final State: WF centre and spread} block). The TB-BSE script automatically parses this to calculate the intra-cell Coulomb gauge correction.
-\end{itemize}
 Ensure the Wannierization converges successfully (the spread $\Omega$ reaches a steady minimum).
 
-\subsection{Step 2: Configuration via \texttt{tbbse.inp}}
-The TB-BSE solver is controlled via an input script named \texttt{tbbse.inp}. This file must be located in the same directory as the solver script and the Wannier90 output files. Below is a detailed breakdown of every configuration flag.
+\subsection{Step 2: Configuration via \texttt{tbbse.inp} - Detailed Parameter Guide}
+The TB-BSE solver is controlled via an input script named \texttt{tbbse.inp}. This file must be located in the same directory as the solver script and the Wannier90 output files. Below is a detailed breakdown of every configuration flag, its physical meaning, how to set it, and the rationale behind its default value.
 
+\subsubsection{System Parameters}
 \begin{itemize}
-    \item \textbf{[System]}
+    \item \texttt{wannier\_prefix}
     \begin{itemize}
-        \item \texttt{wannier\_prefix}: The prefix of your Wannier90 files (e.g., if you have \texttt{GaAs\_hr.dat}, set this to \texttt{GaAs}). Default is \texttt{wannier90}.
-        \item \texttt{a\_x}, \texttt{a\_y}: The 2D lattice constants of your orthorhombic supercell, in Angstroms. Required for generating the proper reciprocal lattice vectors $\mathbf{b}_1, \mathbf{b}_2$ and converting reciprocal coordinates to physical distances.
-        \item \texttt{c\_z}: The vertical size of the supercell (in Angstroms). Even for a 2D system, the DFT cell has a vacuum gap. This parameter is used strictly to define the physical volume/area of the computational cell.
+        \item \textbf{Physical Concept}: This simply defines the base name of your Wannier90 output files.
+        \item \textbf{How to set}: If your Wannier90 execution generated \texttt{MoS2\_hr.dat}, set this to \texttt{MoS2}. 
+        \item \textbf{Default}: \texttt{wannier90}, as this is the standard default prefix when running Wannier90 without explicitly defining a seedname.
     \end{itemize}
-    
-    \item \textbf{[BSE\_Parameters]}
+    \item \texttt{a\_x}, \texttt{a\_y}
     \begin{itemize}
-        \item \texttt{nk\_x}, \texttt{nk\_y}: The dimensions of the $\mathbf{k}$-point mesh used to solve the BSE. A denser mesh yields more continuous spectra and accurate binding energies, but the memory and time scale as $\mathcal{O}((N_{kx}N_{ky})^3)$. Start with $15 \times 15$ for testing.
-        \item \texttt{kappa}: The average dielectric constant of the surrounding medium. If your 2D layer is suspended in a vacuum, $\kappa = 1$. If it sits on a bulk GaAs substrate ($\epsilon \approx 12.9$), $\kappa = (12.9 + 1.0)/2 = 6.95$.
-        \item \texttt{r0\_ang}: The intrinsic 2D screening length of the heterostructure in Angstroms. This can be derived from ab-initio dielectric tensor calculations (e.g., taking the macroscopic dielectric profile integrated over the slab thickness). Typical values range from 30 \AA\ to 60 \AA\ for TMDs.
+        \item \textbf{Physical Concept}: These are the lattice constants of the 2D plane in your orthorhombic supercell, given in \AA ngstroms. They define the area of the unit cell ($A = a_x \times a_y$) and properly scale the momentum transfer vectors $\mathbf{q}$ from fractional reciprocal coordinates to physical Cartesian units.
+        \item \textbf{How to set}: Extract these from the cell dimensions of your DFT input (e.g., the \texttt{POSCAR} file).
+        \item \textbf{Default}: \texttt{3.18}, because it is the widely known and typical lattice constant for many prototypical TMD monolayers (like MoS$_2$).
     \end{itemize}
+    \item \texttt{c\_z}
+    \begin{itemize}
+        \item \textbf{Physical Concept}: The vertical dimension of your supercell along the c-vector (perpendicular to the 2D plane) in \AA ngstroms. Even though the system is 2D, the Coulomb interaction depends on the 3D volume macroscopic normalization in standard codes.
+        \item \textbf{How to set}: Extract this from your DFT cell dimensions (e.g., \texttt{POSCAR}).
+        \item \textbf{Default}: \texttt{20.0}, because a 20 \AA\ vacuum gap is a standard best-practice in DFT for 2D materials to avoid spurious interactions between periodic slab images.
+    \end{itemize}
+\end{itemize}
 
-    \item \textbf{[Bands]}
+\subsubsection{BSE Parameters}
+\begin{itemize}
+    \item \texttt{nk\_x}, \texttt{nk\_y}
     \begin{itemize}
-        \item \texttt{valence\_bands}, \texttt{conduction\_bands}: The zero-indexed indices of the Wannier bands you wish to include in the transition space. For a minimal two-band model (one hole, one electron), set these to the respective VBM and CBM band indices.
+        \item \textbf{Physical Concept}: These define the density of the discrete $\mathbf{k}$-point mesh across the 2D Brillouin Zone used to evaluate the BSE integral equation. The exciton envelope function is highly localized in $\mathbf{k}$-space around the band extrema (e.g., $K$ and $\Gamma$ valleys); thus, a sufficiently dense grid is required to resolve it.
+        \item \textbf{How to set}: Increase these values until the binding energy and absorption spectrum converge. Be aware that computational cost scales as $\mathcal{O}((N_{kx}N_{ky})^3)$.
+        \item \textbf{Default}: \texttt{15}, providing a computationally cheap ($15\times15$) grid that allows the solver to finish in seconds for fast debugging and testing, while capturing the qualitative physics.
     \end{itemize}
-
-    \item \textbf{[Optics]}
+    \item \texttt{kappa}
     \begin{itemize}
-        \item \texttt{polarization}: The direction of the incoming electric field. Options are \texttt{x}, \texttt{y}, or \texttt{in-plane} (which averages the x and y oscillator strengths).
-        \item \texttt{broadening}: The phenomenological Lorentzian linewidth $\gamma$ applied to each discrete exciton state, in eV. Typical experimental values range from $0.01$ to $0.05$ eV.
-        \item \texttt{energy\_range}: Defined as \texttt{E\_min, E\_max, N\_points}. This determines the plotting window relative to the Quasiparticle (TB) bandgap. For example, \texttt{-0.5, 0.2, 500} plots from 0.5 eV below the bandgap to 0.2 eV above it, using 500 resolution points.
+        \item \textbf{Physical Concept}: The macroscopic dielectric screening from the surrounding environment. In the Rytova-Keldysh model, the field lines leak into the surrounding media, screening the electron-hole interaction.
+        \item \textbf{How to set}: Compute the average of the dielectric constants of the top and bottom environments: $\kappa = (\epsilon_{\text{top}} + \epsilon_{\text{bottom}})/2$. 
+        \item \textbf{Default}: \texttt{6.95}, corresponding to a 2D material sitting on a bulk GaAs substrate ($\epsilon \approx 12.9$) and exposed to vacuum on top ($\epsilon = 1.0$), yielding $(12.9 + 1.0)/2 = 6.95$.
+    \end{itemize}
+    \item \texttt{r0\_ang}
+    \begin{itemize}
+        \item \textbf{Physical Concept}: The intrinsic 2D screening length of the heterostructure layer itself, given in \AA ngstroms. It represents the in-plane polarizability of the finite-thickness slab. 
+        \item \textbf{How to set}: Derive it from ab-initio dielectric tensor calculations using the relation $r_0 = d \cdot \epsilon_{\text{bulk}}/2$ (where $d$ is the effective thickness).
+        \item \textbf{Default}: \texttt{45.0}, an empirically robust, typical intrinsic screening length characterizing many standard TMD monolayers.
+    \end{itemize}
+\end{itemize}
+
+\subsubsection{Bands}
+\begin{itemize}
+    \item \texttt{valence\_bands}, \texttt{conduction\_bands}
+    \begin{itemize}
+        \item \textbf{Physical Concept}: Identifies which of the Wannier orbitals constitute the valence space (hole states) and conduction space (electron states). For low-energy optical properties, the primary transitions occur between the highest valence band (VBM) and the lowest conduction band (CBM).
+        \item \textbf{How to set}: Provide the zero-indexed band indices corresponding to the ordering in your Wannier90 output.
+        \item \textbf{Default}: \texttt{0} for valence and \texttt{1} for conduction, assuming a minimal two-band model where the first extracted Wannier function is the valence orbital and the second is the conduction orbital.
+    \end{itemize}
+\end{itemize}
+
+\subsubsection{Optics}
+\begin{itemize}
+    \item \texttt{polarization}
+    \begin{itemize}
+        \item \textbf{Physical Concept}: The direction of the incident light's electric field vector. Optical absorption relies on the transition dipole moment being aligned with the light polarization.
+        \item \textbf{How to set}: Choose \texttt{x} or \texttt{y} for specific linear polarizations, \texttt{in-plane} for unpolarized/circularly polarized light averaging over the 2D plane, or \texttt{z} for out-of-plane excitations.
+        \item \textbf{Default}: \texttt{in-plane}, since most 2D material optical experiments use normal-incidence illumination where the electric field lies entirely in the $xy$-plane.
+    \end{itemize}
+    \item \texttt{broadening}
+    \begin{itemize}
+        \item \textbf{Physical Concept}: The phenomenological Lorentzian linewidth $\gamma$ applied to each exciton resonance. It physically represents the finite lifetime of the state due to dephasing mechanisms like electron-phonon interactions, structural defects, and temperature.
+        \item \textbf{How to set}: Set to a small value (e.g., $0.01$ eV) to see distinct sharp peaks (simulating $0$ K ideal crystals) or a larger value ($0.05$ eV) to match room-temperature experimental spectra.
+        \item \textbf{Default}: \texttt{0.02} eV, a sensible value for low-temperature measurements on high-quality 2D crystals, preventing the theoretical peaks from being delta-function singularities while retaining sharp spectral features.
+    \end{itemize}
+    \item \texttt{energy\_range}
+    \begin{itemize}
+        \item \textbf{Physical Concept}: The computational energy window and resolution used when evaluating Elliott's formula to plot the continuous absorption spectrum.
+        \item \textbf{How to set}: Define as \texttt{E\_min, E\_max, N\_points} relative to the non-interacting Quasiparticle (TB) bandgap.
+        \item \textbf{Default}: \texttt{-0.5, 0.2, 500}. This plots the spectrum from 0.5 eV below the bandgap (capturing the strongly bound A and B excitons) up to 0.2 eV above the bandgap (capturing the onset of the continuum), with a smooth resolution of 500 points.
     \end{itemize}
 \end{itemize}
 
 \subsection{Step 3: Execution}
-Run the solver using Python (requires \texttt{numpy}, \texttt{scipy}, and \texttt{matplotlib}):
+Run the solver using Python:
 \begin{verbatim}
 python tb_bse_solver.py
 \end{verbatim}
